@@ -1,0 +1,10 @@
+{
+    "xlm-roberta-large-squad2"                             : "RoBERTa (560M)",
+    "bert-multi-cased-finedtuned-xquad-tydiqa-goldp"       : "Bert Multicased (178M)",
+    "distilbert-base-cased-distilled-squad"                : "DistilBERT (65M)",
+    "bert-large-uncased-whole-word-masking-finetuned-squad": "Bert Uncased (335M)",
+    "gpt4all.gguf"                                         : "GPT4All (13B)",
+    "Meta-Llama.gguf"                                      : "Meta Llama 3 (8B)",
+    "Nous-Hermes.gguf"                                     : "Nous Hermes 2 (7B)",
+    "Phi.gguf"                                             : "Phi-3 Mini (3.8B)"
+}
