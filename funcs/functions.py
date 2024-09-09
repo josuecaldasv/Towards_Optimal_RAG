@@ -616,7 +616,14 @@ def extract_metrics_from_excel(file_path, metric_name, model_mapping, noise_thre
         model_data = pd.read_excel(excel_data, sheet_name=sheet_name)
         mapped_name = model_mapping.get(sheet_name, sheet_name)
         metrics[mapped_name] = extract_metric(model_data, metric_name, noise_thresholds)
-    return metrics
+    final_df = pd.DataFrame({
+        model: {
+            f'{int(noise_level * 100)}%': data[f'{noise_label}_Mean']
+            for noise_label, noise_level in noise_thresholds.items()
+        }
+        for model, data in metrics.items()
+    })
+    return final_df
 
 def get_average_metrics(input_path, model_mapping):
     files = glob.glob(os.path.join(input_path, '*.json'))

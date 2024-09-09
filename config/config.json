@@ -1,0 +1,27 @@
+{
+    "globals": {
+        "stride": 20,
+        "max_tokens": 1500,
+        "num_experiments": 5,
+        "separator": " <|> "
+    },
+    "plots": {
+        "output_path": "../plots"
+    },
+    "extractive_models_open_source": {
+        "ext_model_1": "deepset/xlm-roberta-large-squad2",
+        "ext_model_2": "mrm8488/bert-multi-cased-finedtuned-xquad-tydiqa-goldp",
+        "ext_model_3": "distilbert/distilbert-base-cased-distilled-squad",
+        "ext_model_4": "google-bert/bert-large-uncased-whole-word-masking-finetuned-squad",
+        "input_paths": "../results/ext",
+        "output_paths": "../metrics/ext"
+    },
+    "generative_models_open_source": {
+        "gen_model_1": "Meta-Llama-3-8B-Instruct.Q4_0.gguf",
+        "gen_model_2": "Nous-Hermes-2-Mistral-7B-DPO.Q4_0.gguf",
+        "gen_model_3": "Phi-3-mini-4k-instruct.Q4_0.gguf",
+        "gen_model_4": "gpt4all-13b-snoozy-q4_0.gguf",
+        "input_paths": "../results/gen",
+        "output_paths": "../metrics/gen"
+    }
+}
