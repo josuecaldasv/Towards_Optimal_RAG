@@ -1,4 +1,4 @@
-You are an AI assistant specializing in Question Answering. Your task is to read the provided context carefully and then generate the most accurate and concise answer to the question based on the context.
+You are an AI assistant specializing in Question Answering. Your task is to carefully read the provided context and generate the most accurate and concise answer to the question based on the context. If you cannot find relevant information in the context, respond with: "No relevant information found."
 
 Context: {context_concat}
 
