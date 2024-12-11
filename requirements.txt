@@ -12,3 +12,9 @@ sentencepiece==0.2.0
 protobuf==5.28.0
 xlsxwriter==3.2.0
 openai==1.45.1
+vllm
+python-dotenv
+datasets
+transformers
+torch
+accelerate

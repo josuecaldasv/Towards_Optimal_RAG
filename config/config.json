@@ -21,12 +21,14 @@
         "gen_model_2": "Nous-Hermes-2-Mistral-7B-DPO.Q4_0.gguf",
         "gen_model_3": "Phi-3-mini-4k-instruct.Q4_0.gguf",
         "gen_model_4": "gpt4all-13b-snoozy-q4_0.gguf",
+        "gen_model_5": "Meta-Llama-3.1-70B-Instruct-quantized.w4a16",
         "input_paths": "../results/gen/open",
         "output_paths": "../metrics/gen/open"
     },
     "generative_models_closed_source": {
         "gen_model_1": "gpt-3.5-turbo",
-        "gen_model_2": "gpt-4o-mini",
+        "gen_model_2": "gpt-4o",
+        "gen_model_3": "gpt-4o-mini",
         "input_paths": "../results/gen/closed",
         "output_paths": "../metrics/gen/closed"
     }

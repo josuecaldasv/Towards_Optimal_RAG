@@ -6,5 +6,9 @@
     "gpt4all.gguf"                                         : "GPT4All (13B)",
     "Meta-Llama.gguf"                                      : "Meta Llama 3 (8B)",
     "Nous-Hermes.gguf"                                     : "Nous Hermes 2 (7B)",
-    "Phi.gguf"                                             : "Phi-3 Mini (3.8B)"
+    "Phi.gguf"                                             : "Phi-3 Mini (3.8B)",
+    "gpt-35-turbo-petrobras"                               : "GPT-3.5 Turbo",
+    "gpt-4o-petrobras"                                     : "GPT-4o",
+    "gpt-4o-mini-petrobras"                                : "GPT-4o Mini",
+    "Meta-Llama-3.1-70B-Instruct-quantized.w4a16"          : "Meta Llama 3.1 (70B)"
 }

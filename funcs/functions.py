@@ -13,6 +13,8 @@ import tiktoken
 import random
 import glob
 import os
+import numpy as np
+from transformers import AutoTokenizer
 
 
 model_st = SentenceTransformer('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
@@ -491,64 +493,143 @@ def read_json_in_chunks(filename, cols_to_use, chunk_size=1000):
 
 def compute_metrics(input_file, stride):
     """
-    Objective
-        - Compute various metrics (F1, EM, Cosine, Jaccard, RougeL, and Bleu) for predicted answers with different noise levels, and return the results as a DataFrame.
-    Input
-        - input_file (str): The path to the JSON file containing the dataset of predicted and correct answers.
-        - stride (int): The step size to generate noise levels from 0 to 100.
-    Output
-        - result_df (pd.DataFrame): A DataFrame containing the average values for each metric (F1, EM, Cosine, Jaccard, RougeL, Bleu) across different noise levels.
+    Compute various metrics (F1, EM, Cosine, Jaccard, RougeL, and Bleu) for predicted answers with different noise levels,
+    and return the results as a DataFrame.
     """
     df = pd.read_json(input_file, orient='records', lines=True)
     df['Correct Answer'] = df['Correct Answer'].apply(safe_eval)
+    cols = df.columns
+    cols_not_to_fill = ['Noise_0 Predicted Answer', 'Noise_20 Predicted Answer', 'Noise_40 Predicted Answer', 'Noise_60 Predicted Answer', 'Noise_80 Predicted Answer', 'Noise_100 Predicted Answer']
+    cols_to_fill = [col for col in cols if col not in cols_not_to_fill]
+    df[cols_to_fill] = df[cols_to_fill].fillna(0)
     noise_levels = list(range(0, 101, stride))
-    f1_scores = {f'Noise_{i}': [] for i in noise_levels}
-    rouge_scores = {f'Noise_{i}': [] for i in noise_levels}
-    bleu_scores = {f'Noise_{i}': [] for i in noise_levels}
-    em_scores = {f'Noise_{i}': df[f'EM Noise_{i}'].tolist() for i in noise_levels}
-    em_scores_2v = {f'Noise_{i}': df[f'EM - 2V Noise_{i}'].tolist() for i in noise_levels}
-    cosine_scores = {f'Noise_{i}': df[f'Cosine Noise_{i}'].tolist() for i in noise_levels}
-    jaccard_scores = {f'Noise_{i}': df[f'Jaccard Noise_{i}'].tolist() for i in noise_levels}
+    
+    metrics_sum = {metric: {f'Noise_{i}': 0 for i in noise_levels} for metric in ['f1', 'rouge', 'bleu', 'em', 'em_2v', 'cosine', 'jaccard']}
+    count = {f'Noise_{i}': 0 for i in noise_levels}
+
     for index, row in df.iterrows():
         correct_answer = row['Correct Answer']
+        
         for i in noise_levels:
             noise_level = f'Noise_{i}'
-            f1 = max_f1_score(row[f'{noise_level} Predicted Answer'], correct_answer)
-            f1_scores[noise_level].append(f1)
-            rouge_score = rouge(row[f'{noise_level} Predicted Answer'], correct_answer)
-            rouge_scores[noise_level].append(rouge_score)
-            bleu_score = bleu(row[f'{noise_level} Predicted Answer'], correct_answer)
-            bleu_scores[noise_level].append(bleu_score)
-    avg_f1 = {noise_level: sum(f1_scores[noise_level]) / len(f1_scores[noise_level]) if f1_scores[noise_level] else 0 for noise_level in f1_scores}
-    avg_em = {noise_level: sum(em_scores[noise_level]) / len(em_scores[noise_level]) if em_scores[noise_level] else 0 for noise_level in em_scores}
-    avg_em_2v = {noise_level: sum(em_scores_2v[noise_level]) / len(em_scores_2v[noise_level]) if em_scores_2v[noise_level] else 0 for noise_level in em_scores_2v}
-    avg_cosine = {noise_level: sum(cosine_scores[noise_level]) / len(cosine_scores[noise_level]) if cosine_scores[noise_level] else 0 for noise_level in cosine_scores}
-    avg_jaccard = {noise_level: sum(jaccard_scores[noise_level]) / len(jaccard_scores[noise_level]) if jaccard_scores[noise_level] else 0 for noise_level in jaccard_scores}
-    avg_rouge = {noise_level: sum(rouge_scores[noise_level]) / len(rouge_scores[noise_level]) if rouge_scores[noise_level] else 0 for noise_level in rouge_scores}
-    avg_bleu = {noise_level: sum(bleu_scores[noise_level]) / len(bleu_scores[noise_level]) if bleu_scores[noise_level] else 0 for noise_level in bleu_scores}
+            predicted_answer = row.get(f'{noise_level} Predicted Answer', None)
+            
+            if predicted_answer is not None:
+                f1 = max_f1_score(predicted_answer, correct_answer)
+                rouge_score = rouge(predicted_answer, correct_answer)
+                bleu_score = bleu(predicted_answer, correct_answer)
+            else:
+                f1, rouge_score, bleu_score = 0, 0, 0
+
+            metrics_sum['f1'][noise_level] += f1
+            metrics_sum['rouge'][noise_level] += rouge_score
+            metrics_sum['bleu'][noise_level] += bleu_score
+            
+            metrics_sum['em'][noise_level] += row.get(f'EM Noise_{i}', 0)
+            metrics_sum['em_2v'][noise_level] += row.get(f'EM - 2V Noise_{i}', 0)
+            metrics_sum['cosine'][noise_level] += row.get(f'Cosine Noise_{i}', 0)
+            metrics_sum['jaccard'][noise_level] += row.get(f'Jaccard Noise_{i}', 0)
+
+            count[noise_level] += 1
+
+    avg_metrics = {metric: {noise_level: metrics_sum[metric][noise_level] / count[noise_level] if count[noise_level] > 0 else 0
+                            for noise_level in metrics_sum[metric]}
+                   for metric in metrics_sum}
+
     result_data = {
-        'Metric': [
-            'F1', 
-            'EM - String',
-            'EM - 2V',
-            'Cosine',
-            'Jaccard',
-            'RougeL',
-            'Bleu'
-        ]
+        'Metric': ['F1', 'EM - String', 'EM - 2V', 'Cosine', 'Jaccard', 'RougeL', 'Bleu']
     }
+    
     for noise_level in [f'Noise_{i}' for i in noise_levels]:
         result_data[noise_level] = [
-            avg_f1[noise_level], 
-            avg_em[noise_level], 
-            avg_em_2v[noise_level], 
-            avg_cosine[noise_level], 
-            avg_jaccard[noise_level], 
-            avg_rouge[noise_level], 
-            avg_bleu[noise_level]
+            avg_metrics['f1'][noise_level],
+            avg_metrics['em'][noise_level],
+            avg_metrics['em_2v'][noise_level],
+            avg_metrics['cosine'][noise_level],
+            avg_metrics['jaccard'][noise_level],
+            avg_metrics['rouge'][noise_level],
+            avg_metrics['bleu'][noise_level]
         ]
+
     result_df = pd.DataFrame(result_data)
     return result_df
+
+
+
+# def compute_metrics(input_file, stride):
+#     """
+#     Compute various metrics (F1, EM, Cosine, Jaccard, RougeL, and Bleu) for predicted answers with different noise levels,
+#     and return the results as a DataFrame.
+#     """
+#     df = pd.read_json(input_file, orient='records', lines=True)
+#     df['Correct Answer'] = df['Correct Answer'].apply(safe_eval)
+#     noise_levels = list(range(0, 101, stride))
+    
+#     f1_scores = {f'Noise_{i}': [] for i in noise_levels}
+#     rouge_scores = {f'Noise_{i}': [] for i in noise_levels}
+#     bleu_scores = {f'Noise_{i}': [] for i in noise_levels}
+#     em_scores = {f'Noise_{i}': df.get(f'EM Noise_{i}', [0] * len(df)).tolist() for i in noise_levels}
+#     em_scores_2v = {f'Noise_{i}': df.get(f'EM - 2V Noise_{i}', [0] * len(df)).tolist() for i in noise_levels}
+#     cosine_scores = {f'Noise_{i}': df.get(f'Cosine Noise_{i}', [0] * len(df)).tolist() for i in noise_levels}
+#     jaccard_scores = {f'Noise_{i}': df.get(f'Jaccard Noise_{i}', [0] * len(df)).tolist() for i in noise_levels}
+
+#     print(f'Cosine Scores: {cosine_scores}')
+
+#     for index, row in df.iterrows():
+#         correct_answer = row['Correct Answer']
+#         for i in noise_levels:
+#             noise_level = f'Noise_{i}'
+            
+#             predicted_answer = row.get(f'{noise_level} Predicted Answer', None)
+#             if predicted_answer is not None:
+#                 f1 = max_f1_score(predicted_answer, correct_answer)
+#                 rouge_score = rouge(predicted_answer, correct_answer)
+#                 bleu_score = bleu(predicted_answer, correct_answer)
+#             else:
+#                 # Si no hay respuesta predicha, asignar 0 a todas las métricas
+#                 f1, rouge_score, bleu_score = 0, 0, 0
+
+#             f1_scores[noise_level].append(f1)
+#             rouge_scores[noise_level].append(rouge_score)
+#             bleu_scores[noise_level].append(bleu_score)
+
+#     # Asegurarse de que no haya NaN en las listas
+#     for noise_level in noise_levels:
+#         f1_scores[f'Noise_{noise_level}'] = [0 if np.isnan(x) else x for x in f1_scores[f'Noise_{noise_level}']]
+#         rouge_scores[f'Noise_{noise_level}'] = [0 if np.isnan(x) else x for x in rouge_scores[f'Noise_{noise_level}']]
+#         bleu_scores[f'Noise_{noise_level}'] = [0 if np.isnan(x) else x for x in bleu_scores[f'Noise_{noise_level}']]
+#         em_scores[f'Noise_{noise_level}'] = [0 if np.isnan(x) else x for x in em_scores[f'Noise_{noise_level}']]
+#         em_scores_2v[f'Noise_{noise_level}'] = [0 if np.isnan(x) else x for x in em_scores_2v[f'Noise_{noise_level}']]
+#         cosine_scores[f'Noise_{noise_level}'] = [0 if np.isnan(x) else x for x in cosine_scores[f'Noise_{noise_level}']]
+#         jaccard_scores[f'Noise_{noise_level}'] = [0 if np.isnan(x) else x for x in jaccard_scores[f'Noise_{noise_level}']]
+
+#     # Calcular los promedios asegurándose de que no haya NaN
+#     avg_f1 = {noise_level: sum(f1_scores[noise_level]) / len(f1_scores[noise_level]) if f1_scores[noise_level] else 0 for noise_level in f1_scores}
+#     avg_em = {noise_level: sum(em_scores[noise_level]) / len(em_scores[noise_level]) if em_scores[noise_level] else 0 for noise_level in em_scores}
+#     avg_em_2v = {noise_level: sum(em_scores_2v[noise_level]) / len(em_scores_2v[noise_level]) if em_scores_2v[noise_level] else 0 for noise_level in em_scores_2v}
+#     avg_cosine = {noise_level: sum(cosine_scores[noise_level]) / len(cosine_scores[noise_level]) if cosine_scores[noise_level] else 0 for noise_level in cosine_scores}
+#     avg_jaccard = {noise_level: sum(jaccard_scores[noise_level]) / len(jaccard_scores[noise_level]) if jaccard_scores[noise_level] else 0 for noise_level in jaccard_scores}
+#     avg_rouge = {noise_level: sum(rouge_scores[noise_level]) / len(rouge_scores[noise_level]) if rouge_scores[noise_level] else 0 for noise_level in rouge_scores}
+#     avg_bleu = {noise_level: sum(bleu_scores[noise_level]) / len(bleu_scores[noise_level]) if bleu_scores[noise_level] else 0 for noise_level in bleu_scores}
+
+#     print(f'Average Cosine Scores: {avg_cosine}')
+
+#     result_data = {
+#         'Metric': ['F1', 'EM - String', 'EM - 2V', 'Cosine', 'Jaccard', 'RougeL', 'Bleu']
+#     }
+#     for noise_level in [f'Noise_{i}' for i in noise_levels]:
+#         result_data[noise_level] = [
+#             avg_f1[noise_level],
+#             avg_em[noise_level],
+#             avg_em_2v[noise_level],
+#             avg_cosine[noise_level],
+#             avg_jaccard[noise_level],
+#             avg_rouge[noise_level],
+#             avg_bleu[noise_level]
+#         ]
+#     result_df = pd.DataFrame(result_data)
+#     return result_df
+
 
 def create_mixed_context(positive_context, negative_context, noise_level, max_total_tokens, separator=" <|> "):
     """
@@ -648,3 +729,157 @@ def get_average_metrics(input_path, model_mapping):
         mean_df = concatenated_df.groupby(level=0, axis=1).mean()
         average_dataframes[model_name] = mean_df
     return average_dataframes
+
+
+
+def load_ft_dataset(url, token):
+    headers = {"Authorization": f"token {token}"}
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+    return json.loads(response.text)
+
+
+def convert_ft_dataset_squad_format(data):
+    formatted_data = []
+    for entry in data:
+        context = entry["context"]
+        question = entry["question"]
+        answers = []
+        
+        for answer_text in entry["answer"]:
+            start_index = context.find(answer_text)
+            if start_index != -1: 
+                answers.append({"text": answer_text, "answer_start": start_index})
+            else:
+                print(f"Advertencia: La respuesta '{answer_text}' no se encontró en el contexto del ID {entry['id']}.")
+
+        formatted_data.append({
+            "id": entry["id"],
+            "title": f"Title-{entry['id']}",
+            "context": context,
+            "question": question,
+            "answers": answers
+        })
+    return formatted_data
+
+
+
+def process_ft_dataset(original_data, train_ratio=0.8):
+    random.shuffle(original_data)
+    train_size = int(len(original_data) * train_ratio)
+    train_data = original_data[:train_size]
+    test_data = original_data[train_size:]
+    return {
+        "train": convert_ft_dataset_squad_format(train_data),
+        "test": convert_ft_dataset_squad_format(test_data)
+    }
+
+def format_answers_ft_dataset(answers):
+    return {
+        "text": [a["text"] for a in answers],
+        "answer_start": [a["answer_start"] for a in answers]
+    }
+
+def convert_ft_dataset_to_columnar_format(data):
+    columnar_data = {}
+    for key in data[0].keys():
+        if key == "answers":
+            columnar_data[key] = [format_answers_ft_dataset(d[key]) for d in data]
+        else:
+            columnar_data[key] = [d[key] for d in data]
+    return columnar_data
+
+
+def tokenize_train_features_ft_dataset(examples, tokenizer):
+    
+    # Tokenizamos sin procesar respuestas aún
+    tokenized_examples = tokenizer(
+        examples["question"],
+        examples["context"],
+        truncation="only_second",
+        max_length=384,
+        stride=128,
+        return_overflowing_tokens=True,
+        return_offsets_mapping=True,
+        padding="max_length",
+    )
+    
+    sample_mapping = tokenized_examples.pop("overflow_to_sample_mapping")
+    offset_mapping = tokenized_examples.pop("offset_mapping")
+
+    # Resultados finales que acumularán varios ejemplos si hay múltiples respuestas
+    final_input_ids = []
+    final_attention_mask = []
+    final_start_positions = []
+    final_end_positions = []
+
+    # En modelos tipo LLaMA no existe cls_token_id, utilizaremos bos_token_id
+    tokenizer_special_token_id = tokenizer.cls_token_id if tokenizer.cls_token_id is not None else tokenizer.bos_token_id
+
+    for i, offsets in enumerate(offset_mapping):
+        input_ids = tokenized_examples["input_ids"][i]
+        attention_mask = tokenized_examples["attention_mask"][i]
+        
+        # Obtener el índice del token especial
+        special_index = input_ids.index(tokenizer_special_token_id)
+        
+        # Mapeamos i -> índice de ejemplo original
+        sample_index = sample_mapping[i]
+        answers = examples["answers"][sample_index]
+
+        # Si no hay respuestas para este ejemplo
+        if len(answers["answer_start"]) == 0:
+            # Creamos un único ejemplo con start/end en el token especial
+            final_input_ids.append(input_ids)
+            final_attention_mask.append(attention_mask)
+            final_start_positions.append(special_index)
+            final_end_positions.append(special_index)
+        else:
+            # Para cada respuesta creamos un ejemplo
+            for ans_idx, start_char in enumerate(answers["answer_start"]):
+                ans_text = answers["text"][ans_idx]
+                end_char = start_char + len(ans_text)
+
+                sequence_ids = tokenized_examples.sequence_ids(i)
+
+                # Encontramos el primer token del contexto
+                token_start_index = 0
+                while token_start_index < len(sequence_ids) and sequence_ids[token_start_index] != 1:
+                    token_start_index += 1
+
+                # Encontramos el último token del contexto
+                token_end_index = len(input_ids) - 1
+                while token_end_index >= 0 and sequence_ids[token_end_index] != 1:
+                    token_end_index -= 1
+
+                # Comprobamos si la respuesta encaja en el contexto tokenizado
+                if not (offsets[token_start_index][0] <= start_char and offsets[token_end_index][1] >= end_char):
+                    # No se alinea bien, usamos el token especial
+                    start_pos = special_index
+                    end_pos = special_index
+                else:
+                    # Ajustamos token_start_index hacia adelante hasta llegar a start_char
+                    start_pos = token_start_index
+                    while start_pos < len(offsets) and offsets[start_pos][0] <= start_char:
+                        start_pos += 1
+                    start_pos -= 1  # Retrocedemos uno, ya que el loop se pasa un token
+
+                    # Ajustamos token_end_index hacia atrás hasta llegar por detrás de end_char
+                    end_pos = token_end_index
+                    while end_pos >= 0 and offsets[end_pos][1] >= end_char:
+                        end_pos -= 1
+                    end_pos += 1  # Avanzamos uno, ya que el loop se pasa un token
+
+                # Agregamos el ejemplo correspondiente a esta respuesta
+                final_input_ids.append(input_ids)
+                final_attention_mask.append(attention_mask)
+                final_start_positions.append(start_pos)
+                final_end_positions.append(end_pos)
+
+    # Retornamos los ejemplos finales (ahora una entrada por respuesta)
+    return {
+        "input_ids": final_input_ids,
+        "attention_mask": final_attention_mask,
+        "start_positions": final_start_positions,
+        "end_positions": final_end_positions
+    }
