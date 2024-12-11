@@ -3,6 +3,11 @@
         "stride": 20,
         "max_tokens": 1500,
         "num_experiments": 5,
+        "number_gpus": 8,
+        "max_model_len": 8192,
+        "max_tokens_answer": 64,
+        "temperature": 0,
+        "top_p": 0.5,
         "separator": " <|> "
     },
     "plots": {
@@ -21,14 +26,16 @@
         "gen_model_2": "Nous-Hermes-2-Mistral-7B-DPO.Q4_0.gguf",
         "gen_model_3": "Phi-3-mini-4k-instruct.Q4_0.gguf",
         "gen_model_4": "gpt4all-13b-snoozy-q4_0.gguf",
-        "gen_model_5": "Meta-Llama-3.1-70B-Instruct-quantized.w4a16",
+        "gen_model_5": "neuralmagic/Meta-Llama-3.1-70B-Instruct-quantized.w4a16",
+        "gen_model_6": "meta-llama/Llama-3.1-70B-Instruct",
+        "gen_model_7": "NousResearch/Hermes-3-Llama-3.1-70B",
         "input_paths": "../results/gen/open",
         "output_paths": "../metrics/gen/open"
     },
     "generative_models_closed_source": {
         "gen_model_1": "gpt-3.5-turbo",
         "gen_model_2": "gpt-4o",
-        "gen_model_3": "gpt-4o-mini",
+        "gen_model_3": "gpt-4o-mini-petrobras",
         "input_paths": "../results/gen/closed",
         "output_paths": "../metrics/gen/closed"
     }
