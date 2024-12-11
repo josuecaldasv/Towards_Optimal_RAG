@@ -10,5 +10,6 @@
     "gpt-35-turbo-petrobras"                               : "GPT-3.5 Turbo",
     "gpt-4o-petrobras"                                     : "GPT-4o",
     "gpt-4o-mini-petrobras"                                : "GPT-4o Mini",
-    "Meta-Llama-3.1-70B-Instruct-quantized.w4a16"          : "Meta Llama 3.1 (70B)"
+    "Llama-3.1-70B-Instruct"                               : "Meta Llama 3.1 (70B)",
+    "Hermes-3-Llama-3.1-70B"                               : "Nous Hermes 3 (70B)"
 }
